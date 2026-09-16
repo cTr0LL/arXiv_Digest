@@ -23,6 +23,7 @@ def render(
     scanned: int,
     categories: list[str],
     window_days: int,
+    prefiltered: int | None = None,
     run_date: date | None = None,
 ) -> str:
     run_date = run_date or date.today()
@@ -32,8 +33,14 @@ def render(
     out = [
         f"# arXiv digest - {run_date.isoformat()}",
         "",
-        f"Scanned **{scanned}** submissions in {', '.join(categories)} "
-        f"from the last {window_days} days.",
+        f"**{scanned}** submissions in {', '.join(categories)} over the last "
+        f"{window_days} days."
+        + (
+            f" Embedding prefilter kept the top **{prefiltered}**; those were "
+            "scored by the model."
+            if prefiltered is not None
+            else " All of them were scored by the model."
+        ),
         "",
         "Ranked by a single pass over abstracts, no tool use (stage 1 baseline).",
         "",

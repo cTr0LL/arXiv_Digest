@@ -1,2 +1,7 @@
 anthropic>=0.70
 python-dotenv>=1.0
+
+# Local embedding prefilter. Pulls in torch (~800MB on Windows). If you want to
+# skip it, run with --no-prefilter, but a full week of abstracts then goes to
+# the model and costs real money.
+sentence-transformers>=3.0

@@ -1,3 +1,11 @@
+"""Stage 1: the plain pipeline.
+
+Fixed steps, no tools, no agency: hand the model a batch of abstracts and sort
+by the score that comes back. This is the baseline every later stage gets
+measured against, so once stage 2 exists, resist improving this file. A
+baseline that keeps moving proves nothing.
+"""
+
 from __future__ import annotations
 
 import os
@@ -27,9 +35,9 @@ You will get a numbered list of abstracts. Score every one of them from 1 to 5:
 2 - same broad area, no real connection to their work
 1 - unrelated
 
-Be harsh. In a typical week of ~60 submissions, one or two earn a 5 and most
-land at 1 or 2. Grade inflation makes the digest useless, which is the only
-way this task can actually fail.
+Be harsh. These abstracts have already passed a similarity filter, so they will
+all look superficially plausible. Most still deserve a 1 or 2. Grade inflation
+makes the digest useless, which is the only way this task can actually fail.
 
 Write `relevance` for this researcher specifically, naming the part of their
 profile it connects to. If a paper is not relevant, say so plainly rather than
@@ -40,14 +48,27 @@ The abstract is all you get. Do not speculate about content beyond it."""
 
 
 def load_profile() -> str:
+    """Read profile.md, refusing to run on a template nobody filled in."""
     if not config.PROFILE_PATH.exists():
         raise FileNotFoundError(
-            f"No profile at {config.PROFILE_PATH}. Copy profile.md from the repo "
-            "and describe what you work on -- the digest is only as good as this file."
+            f"No profile at {config.PROFILE_PATH}. Copy "
+            f"{config.PROFILE_EXAMPLE_PATH.name} to profile.md and fill it in. "
+            "profile.md is gitignored, so what you write stays local."
         )
+
     profile = config.PROFILE_PATH.read_text(encoding="utf-8").strip()
-    if not profile:
-        raise ValueError(f"{config.PROFILE_PATH} is empty.")
+
+    # Headings and HTML comments are not content. A profile that is all
+    # scaffolding produces a digest of uniform 1s, which looks like a model
+    # failure and is not one -- so fail here, where the cause is obvious.
+    from .prefilter import profile_chunks
+
+    if len(profile_chunks(profile)) < 3:
+        raise ValueError(
+            f"{config.PROFILE_PATH} has almost no content, just headings or "
+            "comments. Fill in a few sentences about what you work on. This "
+            "file is the prompt; everything downstream depends on it."
+        )
     return profile
 
 
@@ -107,17 +128,17 @@ def assess(
     return results
 
 
-def run(papers: list[Paper]) -> list[tuple[Paper, Assessment]]:
+def run(papers: list[Paper], profile: str | None = None) -> list[tuple[Paper, Assessment]]:
     """Score and rank. Returns every paper, best first -- the caller cuts to top-K."""
     if not papers:
         return []
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise RuntimeError(
             "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key, "
-            "or run with --dry-run to test the arXiv half without it."
+            "or run with --dry-run to test the retrieval half without it."
         )
 
-    profile = load_profile()
+    profile = profile if profile is not None else load_profile()
     scored = assess(papers, profile)
 
     ranked = [(p, scored[p.arxiv_id]) for p in papers if p.arxiv_id in scored]

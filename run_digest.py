@@ -1,8 +1,11 @@
 """Entry point for the weekly digest.
 
-    python run_digest.py --dry-run     # arXiv only, no API key, no cost
+    python run_digest.py --dry-run     # retrieval only, no API key, no cost
     python run_digest.py               # the real thing
 
+The funnel is: every submission in the window -> embedding prefilter -> model
+scoring -> top K into the digest. Stage 2 replaces `baseline.run` with an agent
+loop of the same shape, so nothing else has to change.
 """
 
 from __future__ import annotations
@@ -14,81 +17,92 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from arxiv_digest import arxiv_client, baseline, config, render
+from arxiv_digest import arxiv_client, baseline, config, prefilter, render
 
 
 def main() -> int:
+    # Progress prints are the only feedback during the slow fetch and embed
+    # steps. Without this they buffer until exit when output is redirected,
+    # which is exactly the case under cron.
+    sys.stdout.reconfigure(line_buffering=True)
     load_dotenv()
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Fetch and list papers without calling the model. Costs nothing.",
+        help="Fetch and prefilter without calling the model. Costs nothing.",
     )
-    parser.add_argument("--limit", type=int, default=config.FETCH_LIMIT)
     parser.add_argument("--window", type=int, default=config.WINDOW_DAYS)
+    parser.add_argument("--max-papers", type=int, default=config.MAX_PAPERS)
+    parser.add_argument(
+        "--keep",
+        type=int,
+        default=config.PREFILTER_KEEP,
+        help="How many papers survive the prefilter and get scored by the model.",
+    )
     parser.add_argument("--top", type=int, default=config.TOP_K)
     parser.add_argument(
-        "--categories",
-        nargs="+",
-        default=config.CATEGORIES,
-        help="arXiv categories, e.g. --categories cs.LG eess.IV",
+        "--no-prefilter",
+        action="store_true",
+        help="Score every fetched abstract. Expensive on a full week; use with --max-papers.",
     )
-    parser.add_argument(
-        "--out",
-        type=str,
-        default=None,
-        help="Output path. Defaults to digests/<today>.md",
-    )
+    parser.add_argument("--categories", nargs="+", default=config.CATEGORIES)
+    parser.add_argument("--out", type=str, default=None)
     args = parser.parse_args()
 
-    print(f"Fetching up to {args.limit} recent submissions in {', '.join(args.categories)}...")
-    papers = arxiv_client.fetch_recent(
-        categories=args.categories, limit=args.limit, window_days=args.window
-    )
-    print(f"{len(papers)} submitted in the last {args.window} days.")
+    profile = baseline.load_profile()
 
-    if len(papers) == args.limit:
-        print(
-            "  note: every fetched paper fell inside the window, so older ones were "
-            "likely cut off. Raise --limit or FETCH_LIMIT to see the full week."
+    print(f"Fetching {args.window} days of {', '.join(args.categories)}...")
+    papers = arxiv_client.fetch_window(
+        categories=args.categories,
+        window_days=args.window,
+        max_papers=args.max_papers,
+    )
+    if not papers:
+        print("Nothing in the window.")
+        return 0
+    fetched = len(papers)
+
+    if args.no_prefilter:
+        candidates = [(p, None) for p in papers]
+        print(f"Prefilter disabled: all {fetched} papers go to the model.")
+    else:
+        print(f"Prefiltering {fetched} -> {args.keep} by similarity to your profile...")
+        candidates = prefilter.rank(
+            papers, profile, keep=args.keep, model_name=config.EMBED_MODEL
         )
 
-    if not papers:
-        print("Nothing to digest.")
-        return 0
-
     if args.dry_run:
-        for paper in papers:
-            print(f"  {paper.published.date()}  {paper.primary_category:10s}  {paper.title[:80]}")
-        print(f"\nDry run: {len(papers)} papers, no model calls made.")
+        print(f"\nTop {min(25, len(candidates))} by embedding similarity:\n")
+        for paper, score in candidates[:25]:
+            marker = f"{score:.3f}" if score is not None else "  -  "
+            print(f"  {marker}  {paper.primary_category:10s}  {paper.title[:76]}")
+        print(f"\nDry run: {fetched} fetched, {len(candidates)} kept, no model calls.")
         return 0
 
-    print("Scoring against your profile...")
-    ranked = baseline.run(papers)
+    print(f"Scoring {len(candidates)} candidates against your profile...")
+    ranked = baseline.run([p for p, _ in candidates], profile=profile)
 
     markdown = render.render(
         ranked=ranked,
         top_k=args.top,
-        scanned=len(papers),
+        scanned=fetched,
+        prefiltered=None if args.no_prefilter else len(candidates),
         categories=args.categories,
         window_days=args.window,
     )
 
     config.DIGEST_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = (
-        Path(args.out)
-        if args.out
-        else config.DIGEST_DIR / f"{date.today().isoformat()}.md"
-    )
+    out_path = Path(args.out) if args.out else config.DIGEST_DIR / f"{date.today().isoformat()}.md"
     out_path.write_text(markdown, encoding="utf-8")
 
     print(f"\nWrote {out_path}")
-    top = ranked[: args.top]
-    if top:
-        best = top[0]
-        print(f"Top pick ({best[1].score}/5): {best[0].title}")
+    if ranked:
+        best_paper, best = ranked[0]
+        print(f"Top pick ({best.score}/5): {best_paper.title}")
+        high = sum(1 for _, a in ranked if a.score >= 4)
+        print(f"{high} paper(s) scored 4 or better.")
     return 0
 
 

@@ -16,4 +16,9 @@ venv/
 digests/*.md
 !digests/.gitkeep
 
+# Your filled-in profile stays local
+profile.md
 README.md
+
+# Cached paper pool for labeling. Big, regenerable, and specific to a window.
+eval/pool.json
