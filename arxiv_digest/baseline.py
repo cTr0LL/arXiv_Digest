@@ -122,9 +122,39 @@ def assess(
             assessment.score = max(1, min(5, assessment.score))
             results[assessment.arxiv_id] = assessment
 
-    missing = [p.arxiv_id for p in papers if p.arxiv_id not in results]
+    # Models occasionally drop an item from a long list. Dropping it here means
+    # a paper silently disappears from the digest, so ask again for just the
+    # stragglers -- a much shorter list, which is usually enough.
+    missing = [p for p in papers if p.arxiv_id not in results]
     if missing:
-        print(f"  warning: model skipped {len(missing)} paper(s): {', '.join(missing[:5])}")
+        print(f"  {len(missing)} paper(s) had no verdict; asking again for those...")
+        retry = client.messages.parse(
+            model=config.MODEL,
+            max_tokens=config.MAX_TOKENS,
+            system=system,
+            output_config={"effort": "medium"},
+            output_format=Ranking,
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Score these {len(missing)} submissions. Return one "
+                        f"assessment for every one of them.\n\n{_format_batch(missing)}"
+                    ),
+                }
+            ],
+        )
+        for assessment in retry.parsed_output.assessments:
+            assessment.score = max(1, min(5, assessment.score))
+            results[assessment.arxiv_id] = assessment
+
+        still_missing = [p.arxiv_id for p in missing if p.arxiv_id not in results]
+        if still_missing:
+            print(
+                f"  warning: {len(still_missing)} paper(s) still unscored after a "
+                f"retry: {', '.join(still_missing[:5])}. They will not appear in "
+                "the digest."
+            )
     return results
 
 

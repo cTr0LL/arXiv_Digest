@@ -3,11 +3,20 @@
 Stdlib only, so this half of the pipeline runs with no dependencies and no API
 key. `python run_digest.py --dry-run` exercises exactly this module.
 
-The naive approach -- ask for the newest N and filter by date on our side --
-does not work at arXiv's volume. cs.LG + cs.CV + eess.IV take roughly 1400
-submissions a week, so "newest 120" is the most recent twelve hours, not a
-sample of the week. This module asks the server for an explicit date range and
-pages through the whole result set instead.
+Two things shaped the design here:
+
+- Volume. cs.LG + cs.CV + eess.IV take roughly 1400 submissions a week, so
+  "fetch the newest 120 and filter" covers about twelve hours, not a week.
+  Everything below pages.
+- Throttling. arXiv answers a caller it considers too busy with HTTP 406 Not
+  Acceptable, which reads like a malformed request and is not one: the same URL
+  returns 200 minutes later, from the same client. So 406 is retried rather
+  than treated as fatal, and a page that fails after its retries truncates the
+  fetch instead of discarding it.
+
+The window is applied client-side against newest-first results rather than with
+the API's `submittedDate:[... TO ...]` filter. Both work; this way depends on
+nothing but sort order, and costs at most one page of overshoot.
 
 API reference: https://info.arxiv.org/help/api/user-manual.html
 """
@@ -26,15 +35,21 @@ from .models import Paper
 API_URL = "https://export.arxiv.org/api/query"
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV = "{http://arxiv.org/schemas/atom}"
-OPENSEARCH = "{http://a9.com/-/spec/opensearch/1.1/}"
 
 # arXiv asks callers to leave three seconds between requests and to identify
-# themselves. Both are conditions of use, not suggestions. Note the delay is
-# per-process: two runs started back to back will still earn you a 429, which
-# is what the backoff below is for.
+# themselves. Both are conditions of use, not suggestions. The delay is
+# per-process: two runs started back to back can still earn a 429, which is
+# what the backoff is for.
 REQUEST_DELAY_SECONDS = 3.0
 USER_AGENT = "arxiv-digest/0.1 (personal research digest)"
-MAX_RETRIES = 4
+MAX_RETRIES = 5
+# arXiv answers a throttled caller with 406 Not Acceptable, which reads like a
+# malformed request and is not one. Treat it like 429: wait, do not rewrite the
+# query. Blocks clear on their own, typically within the hour.
+RETRYABLE_STATUS = {406, 429}
+# Throttle backoff is minutes, not seconds -- retrying hard is what earned the
+# block in the first place.
+BACKOFF_SECONDS = [30, 60, 120, 240]
 
 _last_request_at = 0.0
 
@@ -54,11 +69,36 @@ def _get(params: dict[str, str | int]) -> bytes:
                 body = response.read()
             _last_request_at = time.monotonic()
             return body
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+
+        except urllib.error.HTTPError as exc:
+            _last_request_at = time.monotonic()
+            # arXiv signals throttling with 406 as well as 429, so both are
+            # worth waiting out along with 5xx. Any other 4xx is a request the
+            # API will refuse identically four times in a row, so say what
+            # happened instead of spending a minute proving it.
+            if exc.code not in RETRYABLE_STATUS and exc.code < 500:
+                raise RuntimeError(
+                    "arXiv rejected the request with HTTP "
+                    f"{exc.code} ({exc.reason}). This is a query the API will "
+                    "not accept, not a transient failure."
+                    f"{chr(10)}URL: {url}"
+                ) from exc
+            if exc.code == 406:
+                print(
+                    "  arXiv returned 406. Despite the name, this is how it "
+                    "signals rate limiting -- the query is fine."
+                )
+            if attempt == MAX_RETRIES - 1:
+                raise
+            backoff = BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS) - 1)]
+            print(f"  waiting {backoff}s before retry {attempt + 2}/{MAX_RETRIES}")
+            time.sleep(backoff)
+
+        except (urllib.error.URLError, TimeoutError) as exc:
             _last_request_at = time.monotonic()
             if attempt == MAX_RETRIES - 1:
                 raise
-            backoff = 15 * (attempt + 1)
+            backoff = BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS) - 1)]
             print(f"  arXiv request failed ({exc}); retrying in {backoff}s")
             time.sleep(backoff)
 
@@ -108,22 +148,6 @@ def _parse_entry(entry: ET.Element) -> Paper | None:
     )
 
 
-def _date_range(window_days: int, now: datetime | None = None) -> str:
-    now = now or datetime.now(timezone.utc)
-    start = now - timedelta(days=window_days)
-    return f"[{start:%Y%m%d%H%M} TO {now:%Y%m%d%H%M}]"
-
-
-def count_window(categories: list[str], window_days: int) -> int:
-    """How many submissions exist in the window, without downloading them."""
-    query = (
-        f"({' OR '.join(f'cat:{c}' for c in categories)}) "
-        f"AND submittedDate:{_date_range(window_days)}"
-    )
-    root = ET.fromstring(_get({"search_query": query, "start": 0, "max_results": 1}))
-    return int(root.findtext(f"{OPENSEARCH}totalResults") or 0)
-
-
 def fetch_window(
     categories: list[str],
     window_days: int = 7,
@@ -133,52 +157,73 @@ def fetch_window(
 ) -> list[Paper]:
     """Every submission in `categories` within the last `window_days`.
 
-    Pages until the server runs out or `max_papers` is reached. At three
-    seconds a page this is about 20 seconds for a typical week; the ceiling
-    exists so a careless category list cannot start a ten-minute download.
+    Pages newest-first and stops at the first page that runs past the cutoff.
+    Because results are sorted descending by submission date, one paper older
+    than the cutoff means every later one is older too -- so this costs at most
+    a single page of overshoot.
     """
-    query = (
-        f"({' OR '.join(f'cat:{c}' for c in categories)}) "
-        f"AND submittedDate:{_date_range(window_days)}"
-    )
+    query = " OR ".join(f"cat:{c}" for c in categories)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
 
     papers: list[Paper] = []
     seen: set[str] = set()
-    total: int | None = None
-    start = 0
+    scanned = 0
+    exhausted = False
+    partial = False
 
-    while start < max_papers:
-        body = _get(
-            {
-                "search_query": query,
-                "start": start,
-                "max_results": min(page_size, max_papers - start),
-                "sortBy": "submittedDate",
-                "sortOrder": "descending",
-            }
-        )
-        root = ET.fromstring(body)
+    while scanned < max_papers:
+        try:
+            body = _get(
+                {
+                    "search_query": query,
+                    "start": scanned,
+                    "max_results": min(page_size, max_papers - scanned),
+                    "sortBy": "submittedDate",
+                    "sortOrder": "descending",
+                }
+            )
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            # Throttling is per-request and intermittent, so page 5 can fail
+            # after pages 1-4 succeeded. Losing an otherwise good fetch to that
+            # is pointless: a partial pool still labels and still digests.
+            if not papers:
+                raise
+            print(
+                f"  page at offset {scanned} failed after retries ({exc}). "
+                f"Continuing with the {len(papers)} paper(s) already fetched."
+            )
+            partial = True
+            break
 
-        if total is None:
-            total = int(root.findtext(f"{OPENSEARCH}totalResults") or 0)
-            if progress:
-                print(f"  {total} submissions in window; fetching up to {max_papers}")
-
-        entries = root.findall(f"{ATOM}entry")
+        entries = ET.fromstring(body).findall(f"{ATOM}entry")
         if not entries:
             break
 
+        oldest: datetime | None = None
         for entry in entries:
             paper = _parse_entry(entry)
+            if paper is None:
+                continue
+            oldest = paper.published if oldest is None else min(oldest, paper.published)
             # arXiv pages can overlap at the boundaries; de-duplicate by id.
-            if paper is not None and paper.arxiv_id not in seen:
+            if paper.published >= cutoff and paper.arxiv_id not in seen:
                 seen.add(paper.arxiv_id)
                 papers.append(paper)
 
-        start += len(entries)
+        scanned += len(entries)
         if progress:
-            print(f"  fetched {len(papers)}/{min(total, max_papers)}")
-        if total is not None and start >= total:
+            marker = f", oldest {oldest.date()}" if oldest else ""
+            print(f"  {len(papers)} in window (scanned {scanned}{marker})")
+
+        if oldest is not None and oldest < cutoff:
+            exhausted = True
             break
 
+    # Only a genuine ceiling hit warrants the note; a truncated fetch has
+    # already explained itself above.
+    if not exhausted and not partial and papers:
+        print(
+            f"  note: stopped at the {max_papers} paper ceiling before reaching "
+            "the end of the window. Raise --max-papers for full coverage."
+        )
     return papers

@@ -22,3 +22,7 @@ README.md
 
 # Cached paper pool for labeling. Big, regenerable, and specific to a window.
 eval/pool.json
+
+# SQLite store. Regenerate with `python init_store.py` from pool.json,
+# labels.csv and profile.md -- those remain the human-readable masters.
+eval/digest.db

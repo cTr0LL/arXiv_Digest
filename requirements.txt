@@ -5,3 +5,15 @@ python-dotenv>=1.0
 # skip it, run with --no-prefilter, but a full week of abstracts then goes to
 # the model and costs real money.
 sentence-transformers>=3.0
+
+# Full-text extraction for the stage 2 agent's read_paper tool.
+pypdf>=4.0
+
+# Tests only. The suite is fully offline -- no arXiv, no API key, no model
+# download -- so it runs during a rate-limit block or in CI.
+pytest>=8.0
+
+# Stage 3: your own MCP server. Note this is mcp 2.x, where v1's FastMCP was
+# renamed MCPServer -- v1 examples you find online will not run as written.
+mcp>=2.0
+

@@ -1,0 +1,56 @@
+arxiv_id,label,score,rank,stratum,stratum_size,stratum_sampled,prefilter_score,title,labeled_at
+2609.16785,m,3,22,near,27,20,0.0967,PSMP-CLIP: Patch-Prompt SAM and Multi-Semantic Prompting for CLIP-Based Zero-Shot Anomaly Detection,2026-09-16T19:46:45+00:00
+2609.16579,n,1,36,near,27,20,0.0711,Recovering Physical Parameters from Fragmented Observations via Exact Distributed Spline Merging,2026-09-16T19:47:00+00:00
+2609.16773,y,5,23,near,27,20,0.0913,FSANet: Frequency-Spatial Aware Network for Image Segmentation,2026-09-16T19:47:39+00:00
+2609.16440,n,1,15,near,27,20,0.1280,Learned Look-Ahead Splitting Rule for CART,2026-09-16T19:47:59+00:00
+2609.17068,y,5,11,top,13,13,0.1519,Beyond In-Distribution Metrics: A Systematic Out-of-Distribution Evaluation of Congenital Heart Disease Segmentation,2026-09-16T19:48:42+00:00
+2609.16475,n,1,70,mid,60,14,0.0105,MDN-Control: Mask-Depth-Noise Guided Region Control for Multi-Subject Video Editing,2026-09-16T19:48:50+00:00
+2609.17169,n,1,10,top,13,13,0.1532,MUMINS: Metadata-conditioned Uncertainty-aware Medical Image Next-state Synthesis,2026-09-16T19:49:17+00:00
+2609.17194,n,1,12,top,13,13,0.1458,MyoFlow: Anchor-Tied Rectified Flow for HD-sEMG Gesture Recognition Across Sessions and Subjects,2026-09-16T19:49:24+00:00
+2609.16745,n,1,16,near,27,20,0.1237,The Latent That Never Was: A Forensic Re-run of the CVAE Ablation in Action Chunking Transformer,2026-09-16T19:49:31+00:00
+2609.16742,n,1,151,tail,100,8,-0.0753,Carry-Through Checksum: A Lightweight Fault-Detection for CNN Inference at the Edge,2026-09-16T19:49:44+00:00
+2609.17387,n,1,94,mid,60,14,-0.0091,PanoGS-SLAM: Panoramic 3D Gaussian Splatting SLAM,2026-09-16T19:49:55+00:00
+2609.16775,n,1,6,top,13,13,0.1658,IMVS: Interactive Medical Volume Segmentation with Test-Time Adaptation - A New Method for Annotating Radiology Datasets,2026-09-16T19:50:05+00:00
+2609.16689,n,1,180,tail,100,8,-0.1194,Efficient Quantization-Aware Distillation with Cross-Modal Alignment for Edge Vision-Language Models,2026-09-16T19:50:30+00:00
+2609.16537,n,1,4,top,13,13,0.1983,What Does Layer-Importance Reveal About Transformers and State-Space Models?,2026-09-16T19:50:56+00:00
+2609.17440,n,1,75,mid,60,14,0.0037,Reduced-Space Multi-Fidelity Bayesian Optimization of Process Simulation Models,2026-09-16T19:50:59+00:00
+2609.16796,n,1,39,near,27,20,0.0584,Time-warping estimation via stationarity-based learning of the de-warped signal,2026-09-16T19:51:02+00:00
+2609.16436,n,1,53,mid,60,14,0.0334,Interpreting and Steering LLM Agents for Social Simulations,2026-09-16T19:51:04+00:00
+2609.16971,n,1,9,top,13,13,0.1544,Splitting the Difference: Interpretable Causal Forests for Treatment Effect Heterogeneity and Bias,2026-09-16T19:51:08+00:00
+2609.16898,n,1,192,tail,100,8,-0.1604,OptiPrime: Optimizing Private Inference through Protocol-Hardware Co-design,2026-09-16T19:51:11+00:00
+2609.17064,n,1,34,near,27,20,0.0719,Neuro-Symbolic Hierarchical Intention Anticipation in Human Behavior,2026-09-16T19:51:14+00:00
+2609.16873,m,3,0,top,13,13,0.2351,NeuroTS-Net: Multi-Class Semantic Segmentation of Pediatric Brain Tumors in Multi-Modal MRI,2026-09-16T19:51:46+00:00
+2609.17458,n,1,190,tail,100,8,-0.1530,"Tables Decoded: DELTA for Structure, TARQA for Understanding",2026-09-16T19:51:50+00:00
+2609.16930,n,1,43,mid,60,14,0.0518,Repurposing Deep Limit Order Book Forecasting for Scenario-Conditioned Market Impact Modeling,2026-09-16T19:51:56+00:00
+2609.16472,n,1,67,mid,60,14,0.0156,Online Gradient Computation for Warping Gaussian Process Transformations,2026-09-16T19:51:59+00:00
+2609.17474,n,1,73,mid,60,14,0.0049,Coupled Calibration and Learning: Mitigating Teacher Bias in LLM Distillation without Target-Domain Reward Feedback,2026-09-16T19:52:08+00:00
+2609.16878,n,1,56,mid,60,14,0.0262,VOR-Bench: A Human Perception-Driven Benchmark for Video Object Removal,2026-09-16T19:52:10+00:00
+2609.16751,n,1,27,near,27,20,0.0884,Constant Swap Regret in General-Sum Games via Optimistic Transition Matrices,2026-09-16T19:52:14+00:00
+2609.16594,n,1,79,mid,60,14,0.0019,FRPSS: Feature Rearrangement in Pre-Shape Space for Single-Image Generation,2026-09-16T19:52:17+00:00
+2609.16365,m,3,32,near,27,20,0.0745,Mini-batch Sampling Strategies for Long-Tailed Image Classification: An Empirical Study on CIFAR-100-LT,2026-09-16T19:52:24+00:00
+2609.17223,n,1,20,near,27,20,0.1040,Memorisation bias in medical AI,2026-09-16T19:52:29+00:00
+2609.17147,n,1,26,near,27,20,0.0888,Kernel-Based Metrics Learning for Uncertain Opponent Vehicle Trajectory Prediction in Autonomous Racing,2026-09-16T19:52:33+00:00
+2609.16925,n,1,178,tail,100,8,-0.1182,HyCoSeq: Contextual Hyperbolic Representation Learning for Genomic Sequences,2026-09-16T19:52:39+00:00
+2609.16755,m,3,2,top,13,13,0.2281,De-GAN - Dynamic Parameter Tuned GAN for 3D Medical Image Segmentation: A Step Towards Generalisation,2026-09-16T19:52:47+00:00
+2609.16827,n,1,21,near,27,20,0.1010,Information Geometric Self-Organization at the Edge of Stability in High-Capacity Kernel Associative Memories,2026-09-16T19:52:54+00:00
+2609.17429,n,1,30,near,27,20,0.0810,Learning-Guided Planning in Large Dynamic Action Spaces: Budgeted Tree Search for One-to-Many Mobile Charging,2026-09-16T19:52:59+00:00
+2609.16889,n,1,3,top,13,13,0.2229,Temporally Consistent Graph Extraction and Matching for Longitudinal Angiographic Images,2026-09-16T19:53:03+00:00
+2609.16617,n,1,14,near,27,20,0.1300,Divergence Timing and Cumulative Disagreement under KV-Cache Eviction,2026-09-16T19:53:06+00:00
+2609.17218,n,1,24,near,27,20,0.0909,InfoTaxa: Information-Calibrated Label-Free Clustering for Fine-Grained Visual Taxonomy,2026-09-16T19:53:09+00:00
+2609.17414,n,1,185,tail,100,8,-0.1387,SlotDiT: Object-Centric Representations for Diffusion Transformers,2026-09-16T19:53:12+00:00
+2609.17171,n,1,68,mid,60,14,0.0125,A unified framework for global and local interpretability using adaptive derivative-ordered random explanation,2026-09-16T19:53:16+00:00
+2609.16597,n,1,7,top,13,13,0.1602,A Vision-Language Foundation Model for Precise and Comprehensive Brain Tumor Diagnosis from Preoperative Multimodal Data,2026-09-16T19:53:22+00:00
+2609.16665,n,1,18,near,27,20,0.1160,"Right Direction, Wrong Step: Geometric Analysis of Finite-Step Failure in Looped Transformers",2026-09-16T19:53:25+00:00
+2609.16832,n,1,60,mid,60,14,0.0212,What Breaks Local Watermarks? A Robustness Benchmark for Local Invisible Image Watermarking,2026-09-16T19:53:29+00:00
+2609.17090,n,1,5,top,13,13,0.1942,StainBridge: Stain-Aware Pairwise Registration of Serial Renal Biopsy Whole-Slide Images Across Structural and Immunohistochemical Stains,2026-09-16T19:53:30+00:00
+2609.17297,n,1,163,tail,100,8,-0.0888,Goal-oriented probabilistic forecasting for dynamic PRB allocation in 5G networks,2026-09-16T19:53:34+00:00
+2609.16465,n,1,17,near,27,20,0.1229,HairCS: Reconstructing Strand-Based Hair from Hair Cards,2026-09-16T19:53:37+00:00
+2609.16626,n,1,80,mid,60,14,0.0012,JewelTry: Mask-Free Scale Aware Jewelry Virtual Try-On,2026-09-16T19:53:40+00:00
+2609.16690,n,1,1,top,13,13,0.2290,Efficient 3D Whole-Body PET Image Denoising via Conditional Rectified Flow With Optimized Sampling Strategy,2026-09-16T19:53:43+00:00
+2609.16672,m,3,8,top,13,13,0.1599,Lesion-centered 3D mapping of colonoscopy procedures: validation of a hierarchical ensemble pipeline on public benchmark videos,2026-09-16T19:53:52+00:00
+2609.16369,n,1,40,mid,60,14,0.0576,Autonomous Droplet Navigation via Model-Based Reinforcement Learning,2026-09-16T19:53:54+00:00
+2609.16804,n,1,35,near,27,20,0.0718,SOTER: A Generative Time-Series Foundation Model for Wearable Human Physiological Signals,2026-09-16T19:53:58+00:00
+2609.16606,n,1,45,mid,60,14,0.0501,A Weighted Kernel Method for Approximation that Adapts to Learned Multivariable Structure,2026-09-16T19:54:02+00:00
+2609.16824,n,1,37,near,27,20,0.0694,Adapting to Decision-Relevant Non-Stationarity in Decentralized Heterogeneous Bandits,2026-09-16T19:54:04+00:00
+2609.16462,n,1,38,near,27,20,0.0648,Not All Relations Are Equal: Relation-Balanced and Calibrated Graph Learning for Provenance-Based Intrusion Detection,2026-09-16T19:54:08+00:00
+2609.16964,n,1,100,tail,100,8,-0.0139,HUMAID-NER: A Disaster Tweet Dataset for Joint Named Entity Recognition and Event Classification via Uncertainty-Weighted Multitask Learning,2026-09-16T19:54:12+00:00

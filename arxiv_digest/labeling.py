@@ -30,14 +30,46 @@ from pathlib import Path
 
 from .models import Paper
 
-# (name, start_rank, end_rank_exclusive, how_many_to_sample). Ranks are
-# 0-indexed positions in the prefilter ranking.
-DEFAULT_STRATA: list[tuple[str, int, int, int]] = [
-    ("top", 0, 50, 30),
-    ("near", 50, 150, 25),
-    ("mid", 150, 400, 25),
-    ("tail", 400, 10_000, 20),
-]
+# Share of the label budget each stratum gets. Front-loaded because positives
+# are concentrated there and precision needs them; the thin tail share is still
+# enough to detect a miss, because inverse-propensity weighting makes each tail
+# label stand in for many papers.
+STRATUM_SHARES = [("top", 0.35), ("near", 0.30), ("mid", 0.22), ("tail", 0.13)]
+
+
+def strata_for(
+    pool_size: int, keep: int, total: int = 80
+) -> list[tuple[str, int, int, int]]:
+    """Stratum boundaries as (name, start, end, sample_size).
+
+    Boundaries are defined relative to `keep` -- the rank where the prefilter
+    actually cuts -- rather than as fixed ranks. Two strata sit above the cut
+    and two below, so precision and recall each get evidence no matter how big
+    the pool is.
+
+    Fixed boundaries break on small pools: with 200 papers and a cut at 150,
+    every stratum lands above the line, recall comes out 100% by construction,
+    and the number means nothing.
+    """
+    keep = max(1, min(keep, pool_size))
+    bounds = [
+        ("top", 0, max(5, round(keep / 3))),
+        ("near", max(5, round(keep / 3)), keep),
+        ("mid", keep, min(pool_size, round(keep * 2.5))),
+        ("tail", min(pool_size, round(keep * 2.5)), pool_size),
+    ]
+
+    out = []
+    for (name, start, end), (_, share) in zip(bounds, STRATUM_SHARES):
+        size = max(0, min(end, pool_size) - start)
+        if size <= 0:
+            continue
+        out.append((name, start, min(end, pool_size), min(size, max(1, round(total * share)))))
+    return out
+
+
+# What a full week (~1400 papers) with the default cut looks like.
+DEFAULT_STRATA: list[tuple[str, int, int, int]] = strata_for(1400, 150)
 
 # What the single-keystroke answers mean. Graded rather than binary: "adjacent"
 # is a real category and collapsing it into "no" throws away signal.
@@ -73,9 +105,15 @@ def build_sample(
     strata: list[tuple[str, int, int, int]] | None = None,
     seed: int = 0,
     exclude: set[str] | None = None,
+    keep: int = 150,
+    total: int = 80,
 ) -> list[LabelTask]:
-    """Draw a stratified sample from a full prefilter ranking."""
-    strata = strata or DEFAULT_STRATA
+    """Draw a stratified sample from a full prefilter ranking.
+
+    Boundaries scale to the pool and to `keep`, so a 200-paper pool still puts
+    strata on both sides of the cut.
+    """
+    strata = strata or strata_for(len(ranked), keep, total)
     exclude = exclude or set()
     rng = random.Random(seed)
 

@@ -21,6 +21,11 @@ from pathlib import Path
 
 from arxiv_digest import arxiv_client, baseline, config, labeling, metrics, prefilter
 
+
+def cuts_for(keep: int) -> tuple[int, ...]:
+    """Report recall and precision around the cut being evaluated."""
+    return tuple(sorted({max(1, round(keep / 3)), keep, round(keep * 2.5)}))
+
 POOL_PATH = config.ROOT / "eval" / "pool.json"
 LABELS_PATH = config.ROOT / "eval" / "labels.csv"
 
@@ -77,12 +82,23 @@ def main() -> int:
     parser.add_argument("--max-papers", type=int, default=config.MAX_PAPERS)
     parser.add_argument("--categories", nargs="+", default=config.CATEGORIES)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--keep",
+        type=int,
+        default=config.PREFILTER_KEEP,
+        help=(
+            "The prefilter cut the labels are meant to evaluate. Strata are "
+            "placed on both sides of it, so match this to the --keep you will "
+            "run the digest with."
+        ),
+    )
+    parser.add_argument("--labels", type=int, default=80, help="Label budget.")
     args = parser.parse_args()
 
     sys.stdout.reconfigure(line_buffering=True)
 
     if args.report:
-        print(metrics.report(labeling.load_labels(LABELS_PATH)))
+        print(metrics.report(labeling.load_labels(LABELS_PATH), cuts_for(args.keep)))
         return 0
 
     profile = baseline.load_profile()
@@ -95,13 +111,37 @@ def main() -> int:
     ranked = prefilter.rank(papers, profile, keep=None, model_name=config.EMBED_MODEL)
 
     done = labeling.labeled_ids(LABELS_PATH)
-    tasks = labeling.build_sample(ranked, seed=args.seed, exclude=done)
+    strata = labeling.strata_for(len(ranked), args.keep, args.labels)
+    tasks = labeling.build_sample(
+        ranked, strata=strata, seed=args.seed, exclude=done,
+    )
     if not tasks:
         print(f"\nNothing left to label ({len(done)} done).\n")
-        print(metrics.report(labeling.load_labels(LABELS_PATH)))
+        print(metrics.report(labeling.load_labels(LABELS_PATH), cuts_for(args.keep)))
         return 0
 
+    from collections import Counter
+
+    counts = Counter(t.stratum for t in tasks)
     print(f"\n{len(tasks)} to label, {len(done)} already done.")
+    print(f"  pool {len(ranked)}, evaluating a cut at rank {args.keep}")
+    print("  strata: " + ",  ".join(
+        f"{name} {counts[name]}/{end - start} at ranks {start}-{end}"
+        for name, start, end, _ in strata if counts[name]
+    ))
+
+    # Labels below the cut are the only ones that carry recall information. If
+    # the cut sits past the whole pool there are none, and recall comes out
+    # 100% by construction -- say so rather than reporting a meaningless number.
+    below_cut = sum(counts[n] for n, start, *_ in strata if start >= args.keep)
+    if below_cut == 0:
+        print(
+            "  WARNING: no labels fall below the cut, so recall will come out "
+            "100% by construction and mean nothing. Lower --keep."
+        )
+    else:
+        print(f"  {below_cut} of them sit below the cut -- those are what measure recall.")
+
     print("Scores and ranks are hidden on purpose -- judge the paper, not the filter.")
     print("Every answer is saved immediately, so quitting loses nothing.")
 
@@ -116,7 +156,7 @@ def main() -> int:
                 print()
             if key == "q":
                 print(f"\nStopped. {labeled_now} labeled this session.\n")
-                print(metrics.report(labeling.load_labels(LABELS_PATH)))
+                print(metrics.report(labeling.load_labels(LABELS_PATH), cuts_for(args.keep)))
                 return 0
             if key == "o":
                 webbrowser.open(task.paper.abs_url)
@@ -130,7 +170,7 @@ def main() -> int:
             print(f"  '{key}' is not one of y/m/n/o/s/q")
 
     print(f"\nDone. {labeled_now} labeled this session.\n")
-    print(metrics.report(labeling.load_labels(LABELS_PATH)))
+    print(metrics.report(labeling.load_labels(LABELS_PATH), cuts_for(args.keep)))
     return 0
 
 

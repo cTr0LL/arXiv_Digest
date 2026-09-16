@@ -132,3 +132,73 @@ def report(rows: list[dict[str, str]], cuts: tuple[int, ...] = (50, 150, 400)) -
             "Raise --keep, or accept that they are lost.",
         ]
     return "\n".join(lines)
+
+
+# --- comparing ranking engines -------------------------------------------
+# These work on rankings produced by prefilter / baseline / agent, scored
+# against the hand labels. Separate from the functions above, which describe
+# the labeled sample itself.
+
+
+def positive_positions(
+    order: list[str], positives: set[str]
+) -> list[tuple[str, int | None]]:
+    """Where each known positive landed. None if the engine never ranked it."""
+    index = {arxiv_id: rank for rank, arxiv_id in enumerate(order)}
+    return [(arxiv_id, index.get(arxiv_id)) for arxiv_id in sorted(positives)]
+
+
+def precision_over_labeled(order: list[str], labels: dict[str, int], k: int) -> tuple[float, int, int]:
+    """Precision among the labeled papers inside the top k.
+
+    Returns (precision, positives, labeled_in_k). Most of a top-k is usually
+    unlabeled, so `labeled_in_k` is the number that decides whether the
+    precision figure means anything at all.
+    """
+    inside = [i for i in order[:k] if i in labels]
+    if not inside:
+        return 0.0, 0, 0
+    hits = sum(1 for i in inside if labels[i] >= RELEVANT_AT)
+    return hits / len(inside), hits, len(inside)
+
+
+def compare_rankings(
+    rankings: dict[str, list[str]],
+    labels: dict[str, int],
+    positives: set[str],
+    maybes: set[str],
+    ks: tuple[int, ...] = (5, 8, 10),
+) -> str:
+    lines = ["Where your positives landed (lower is better)", ""]
+
+    header = f"  {'paper':<14}" + "".join(f"{name:>12}" for name in rankings)
+    lines.append(header)
+    for arxiv_id in sorted(positives):
+        row = f"  {arxiv_id:<14}"
+        for order in rankings.values():
+            position = {a: r for r, a in enumerate(order)}.get(arxiv_id)
+            row += f"{'--' if position is None else position:>12}"
+        lines.append(row)
+
+    if maybes:
+        lines += ["", "  and your 'maybe' papers:", ""]
+        for arxiv_id in sorted(maybes):
+            row = f"  {arxiv_id:<14}"
+            for order in rankings.values():
+                position = {a: r for r, a in enumerate(order)}.get(arxiv_id)
+                row += f"{'--' if position is None else position:>12}"
+            lines.append(row)
+
+    lines += ["", "Precision over labeled papers only", ""]
+    for name, order in rankings.items():
+        parts = []
+        for k in ks:
+            precision, hits, seen = precision_over_labeled(order, labels, k)
+            parts.append(f"@{k}: {precision:>4.0%} ({hits}/{seen})")
+        lines.append(f"  {name:<12} " + "   ".join(parts))
+    lines += [
+        "",
+        "  The (hits/n) is how many papers inside that cut you had actually",
+        "  labeled. A precision computed over two papers is not a measurement.",
+    ]
+    return "\n".join(lines)

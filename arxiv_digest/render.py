@@ -25,6 +25,8 @@ def render(
     window_days: int,
     prefiltered: int | None = None,
     run_date: date | None = None,
+    engine: str = "baseline",
+    reads: list[str] | None = None,
 ) -> str:
     run_date = run_date or date.today()
     featured = ranked[:top_k]
@@ -42,9 +44,16 @@ def render(
             else " All of them were scored by the model."
         ),
         "",
-        "Ranked by a single pass over abstracts, no tool use (stage 1 baseline).",
+        (
+            "Ranked by an agent that chose which papers to open (stage 2)."
+            if engine == "agent"
+            else "Ranked by a single pass over abstracts, no tool use (stage 1 baseline)."
+        ),
         "",
     ]
+
+    if reads:
+        out += [f"Read in full: {', '.join(reads)}.", ""]
 
     for position, (paper, assessment) in enumerate(featured, start=1):
         out += [

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from arxiv_digest import arxiv_client, baseline, config, prefilter, render
+from arxiv_digest import agent, arxiv_client, baseline, config, prefilter, render
 
 
 def main() -> int:
@@ -49,6 +49,17 @@ def main() -> int:
     )
     parser.add_argument("--categories", nargs="+", default=config.CATEGORIES)
     parser.add_argument("--out", type=str, default=None)
+    parser.add_argument(
+        "--agent",
+        action="store_true",
+        help="Stage 2: let an agent decide which candidates to read in full.",
+    )
+    parser.add_argument(
+        "--max-reads",
+        type=int,
+        default=8,
+        help="Full-text read budget for --agent. Each read is ~12k tokens.",
+    )
     args = parser.parse_args()
 
     profile = baseline.load_profile()
@@ -81,8 +92,19 @@ def main() -> int:
         print(f"\nDry run: {fetched} fetched, {len(candidates)} kept, no model calls.")
         return 0
 
-    print(f"Scoring {len(candidates)} candidates against your profile...")
-    ranked = baseline.run([p for p, _ in candidates], profile=profile)
+    candidate_papers = [p for p, _ in candidates]
+    context = None
+
+    if args.agent:
+        print(f"Agent triaging {len(candidate_papers)} candidates "
+              f"(read budget {args.max_reads})...")
+        context = agent.build_context(candidate_papers, max_reads=args.max_reads)
+        ranked = agent.run(
+            candidate_papers, profile, max_reads=args.max_reads, context=context
+        )
+    else:
+        print(f"Scoring {len(candidate_papers)} candidates against your profile...")
+        ranked = baseline.run(candidate_papers, profile=profile)
 
     markdown = render.render(
         ranked=ranked,
@@ -91,6 +113,8 @@ def main() -> int:
         prefiltered=None if args.no_prefilter else len(candidates),
         categories=args.categories,
         window_days=args.window,
+        engine="agent" if args.agent else "baseline",
+        reads=context.reads if context else None,
     )
 
     config.DIGEST_DIR.mkdir(parents=True, exist_ok=True)

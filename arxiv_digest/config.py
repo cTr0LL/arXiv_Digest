@@ -30,6 +30,10 @@ TOP_K = 8
 MODEL = "claude-opus-5"
 MAX_TOKENS = 16000
 
+# SQLite store: papers seen, verdicts, your ratings, profile history.
+# Stage 3's MCP server is a thin wrapper over this file.
+DB_PATH = ROOT / "eval" / "digest.db"
+
 PROFILE_PATH = ROOT / "profile.md"
 PROFILE_EXAMPLE_PATH = ROOT / "profile.example.md"
 DIGEST_DIR = ROOT / "digests"

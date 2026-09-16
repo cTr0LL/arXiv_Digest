@@ -18,7 +18,12 @@ measure recall against a labeled set before you tighten it.
 from __future__ import annotations
 
 import re
+import sys
 from functools import lru_cache
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # numpy arrives with sentence-transformers, imported lazily
+    import numpy as np
 
 from .models import Paper
 
@@ -45,8 +50,40 @@ def _load_model(model_name: str):
         from sentence_transformers import SentenceTransformer
     except ImportError as exc:  # pragma: no cover - environment dependent
         raise RuntimeError(INSTALL_HINT) from exc
-    print(f"  loading {model_name} (first run downloads ~80MB)...")
+    # stderr, not stdout. This module is imported by the MCP server, which
+    # speaks JSON-RPC over stdout -- a single stray print corrupts the stream
+    # and drops the connection. Progress messages are diagnostics, not data.
+    print(f"  loading {model_name} (first run downloads ~80MB)...", file=sys.stderr)
     return SentenceTransformer(model_name)
+
+
+def document_text(paper: Paper) -> str:
+    """How a paper is turned into text for embedding.
+
+    Shared so that vectors cached by the digest and vectors used by search are
+    built identically. Change this and stored embeddings become stale.
+    """
+    return f"{paper.title}. {paper.abstract}"
+
+
+def embed_texts(
+    texts: list[str], model_name: str, batch_size: int = 64
+) -> "np.ndarray":
+    """Encode text to L2-normalised vectors. Loads the model on first use."""
+    model = _load_model(model_name)
+    return model.encode(
+        texts, normalize_embeddings=True, batch_size=batch_size, show_progress_bar=False
+    )
+
+
+def embed_papers(
+    papers: list[Paper], model_name: str, batch_size: int = 64
+) -> dict[str, "np.ndarray"]:
+    """Vectors for papers, keyed by arXiv id, ready for `Store.set_embeddings`."""
+    if not papers:
+        return {}
+    vectors = embed_texts([document_text(p) for p in papers], model_name, batch_size)
+    return {paper.arxiv_id: vectors[i] for i, paper in enumerate(papers)}
 
 
 def parse_profile(profile: str) -> tuple[list[str], list[str]]:
@@ -129,11 +166,12 @@ def rank(
         return []
 
     model = _load_model(model_name)
-    documents = [f"{p.title}. {p.abstract}" for p in papers]
+    documents = [document_text(p) for p in papers]
 
     print(
         f"  embedding {len(wanted)} wanted / {len(unwanted)} unwanted statements "
-        f"and {len(papers)} abstracts..."
+        f"and {len(papers)} abstracts...",
+        file=sys.stderr,
     )
     doc_vectors = model.encode(
         documents, normalize_embeddings=True, batch_size=batch_size, show_progress_bar=False
