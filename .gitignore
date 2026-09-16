@@ -26,3 +26,6 @@ eval/pool.json
 # SQLite store. Regenerate with `python init_store.py` from pool.json,
 # labels.csv and profile.md -- those remain the human-readable masters.
 eval/digest.db
+
+# Run logs from scheduled digests.
+logs/

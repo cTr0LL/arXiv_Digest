@@ -34,6 +34,21 @@ MAX_TOKENS = 16000
 # Stage 3's MCP server is a thin wrapper over this file.
 DB_PATH = ROOT / "eval" / "digest.db"
 
+# Preference-learning weights, applied on top of the profile score:
+#   + ALPHA * max similarity to papers you rated 4-5
+#   - BETA  * max similarity to papers you rated 1-2
+# Both default to 0, which is exactly the unlearned prefilter. Raise them once
+# `python learn.py` shows a real improvement on enough positives to trust --
+# shipping a value tuned on two positives would be cargo-culting your own noise.
+PREFERENCE_ALPHA = 0.0
+PREFERENCE_BETA = 0.0
+
+# Papers covered in a digest this recently are not surfaced again. Windows
+# overlap week to week, so without this you re-read Monday's digest on Friday.
+SUPPRESS_SEEN_DAYS = 21
+
+LOG_DIR = ROOT / "logs"
+
 PROFILE_PATH = ROOT / "profile.md"
 PROFILE_EXAMPLE_PATH = ROOT / "profile.example.md"
 DIGEST_DIR = ROOT / "digests"

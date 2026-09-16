@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS runs (
     categories  TEXT NOT NULL,
     window_days INTEGER NOT NULL,
     scanned     INTEGER NOT NULL,
-    kept        INTEGER NOT NULL
+    kept        INTEGER NOT NULL,
+    top_k       INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS assessments (
@@ -114,7 +115,25 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    # Columns added after the first release. `CREATE TABLE IF NOT EXISTS` does
+    # nothing to a table that already exists, so a database created before a
+    # column was added never gets it. Each entry is (table, column, definition)
+    # and is applied only when missing.
+    MIGRATIONS = [
+        ("runs", "top_k", "INTEGER NOT NULL DEFAULT 0"),
+    ]
+
+    def _migrate(self) -> None:
+        for table, column, definition in self.MIGRATIONS:
+            existing = {
+                row["name"]
+                for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if existing and column not in existing:
+                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def close(self) -> None:
         self.conn.close()
@@ -275,12 +294,13 @@ class Store:
 
     def start_run(
         self, engine: str, categories: list[str], window_days: int,
-        scanned: int, kept: int,
+        scanned: int, kept: int, top_k: int = 0,
     ) -> int:
         cursor = self.conn.execute(
-            """INSERT INTO runs (created_at, engine, categories, window_days, scanned, kept)
-               VALUES (?,?,?,?,?,?)""",
-            (_now(), engine, json.dumps(categories), window_days, scanned, kept),
+            """INSERT INTO runs
+               (created_at, engine, categories, window_days, scanned, kept, top_k)
+               VALUES (?,?,?,?,?,?,?)""",
+            (_now(), engine, json.dumps(categories), window_days, scanned, kept, top_k),
         )
         self.conn.commit()
         return cursor.lastrowid
