@@ -23,6 +23,7 @@ API reference: https://info.arxiv.org/help/api/user-manual.html
 
 from __future__ import annotations
 
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -146,6 +147,47 @@ def _parse_entry(entry: ET.Element) -> Paper | None:
         abs_url=f"https://arxiv.org/abs/{arxiv_id}",
         pdf_url=pdf_url,
     )
+
+
+ID_PATTERNS = [
+    # 2609.17068, with or without a version suffix
+    re.compile(r"(?:^|/|abs/|pdf/)(\d{4}\.\d{4,5})(?:v\d+)?", re.IGNORECASE),
+    # Older style: math.GT/0309136, cs.LG/9901001
+    re.compile(r"(?:^|/|abs/|pdf/)([a-z\-]+(?:\.[A-Z]{2})?/\d{7})(?:v\d+)?", re.IGNORECASE),
+]
+
+
+def parse_arxiv_id(text: str) -> str | None:
+    """Pull an arXiv id out of a URL, an id, or a line of pasted text.
+
+    Accepts every form people actually paste: abs pages, pdf links, bare ids,
+    versioned ids, http or https, with or without a trailing slash.
+    """
+    text = text.strip().rstrip("/")
+    if not text:
+        return None
+    for pattern in ID_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return match.group(1)
+    return None
+
+
+def fetch_by_ids(arxiv_ids: list[str], batch_size: int = 50) -> list[Paper]:
+    """Fetch specific papers by id.
+
+    Uses the API's `id_list`, so fifty papers cost one request rather than
+    fifty. That matters when the alternative is provoking the rate limiter.
+    """
+    papers: list[Paper] = []
+    for start in range(0, len(arxiv_ids), batch_size):
+        batch = arxiv_ids[start : start + batch_size]
+        body = _get({"id_list": ",".join(batch), "max_results": len(batch)})
+        for entry in ET.fromstring(body).findall(f"{ATOM}entry"):
+            paper = _parse_entry(entry)
+            if paper is not None:
+                papers.append(paper)
+    return papers
 
 
 def fetch_window(

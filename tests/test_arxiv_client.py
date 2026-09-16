@@ -192,3 +192,61 @@ def test_partial_fetch_does_not_blame_the_ceiling(monkeypatch, frozen_now, no_sl
     out = capsys.readouterr().out
     assert "failed after retries" in out
     assert "ceiling" not in out
+
+
+# --- id parsing -----------------------------------------------------------
+# People paste whatever their browser gave them. All of these must work.
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("2609.17068", "2609.17068"),
+        ("2609.17068v2", "2609.17068"),
+        ("https://arxiv.org/abs/2609.17068", "2609.17068"),
+        ("http://arxiv.org/abs/2609.17068v1", "2609.17068"),
+        ("https://arxiv.org/pdf/2609.17068", "2609.17068"),
+        ("https://arxiv.org/pdf/2609.17068v3", "2609.17068"),
+        ("https://arxiv.org/abs/2609.17068/", "2609.17068"),
+        ("arxiv.org/abs/1706.03762", "1706.03762"),
+        ("  https://arxiv.org/abs/2301.1234  ", "2301.1234"),
+        ("cs.LG/9901001", "cs.LG/9901001"),
+    ],
+)
+def test_arxiv_ids_are_parsed_from_every_common_form(text, expected):
+    assert arxiv_client.parse_arxiv_id(text) == expected
+
+
+@pytest.mark.parametrize("text", ["", "   ", "not a paper", "https://example.com/page"])
+def test_non_ids_are_rejected(text):
+    assert arxiv_client.parse_arxiv_id(text) is None
+
+
+def test_fetch_by_ids_batches_into_one_request(monkeypatch, frozen_now):
+    calls = []
+
+    def fake_get(params):
+        calls.append(params)
+        return atom_feed([make_paper(i, 1) for i in range(3)])
+
+    monkeypatch.setattr(arxiv_client, "_get", fake_get)
+    papers = arxiv_client.fetch_by_ids(["a", "b", "c"])
+
+    assert len(calls) == 1, "ten papers must not mean ten requests"
+    assert calls[0]["id_list"] == "a,b,c"
+    assert len(papers) == 3
+
+
+def test_fetch_by_ids_splits_oversized_batches(monkeypatch, frozen_now):
+    calls = []
+    monkeypatch.setattr(arxiv_client, "_get",
+                        lambda p: calls.append(p) or atom_feed([]))
+    arxiv_client.fetch_by_ids([str(i) for i in range(120)], batch_size=50)
+    assert [len(c["id_list"].split(",")) for c in calls] == [50, 50, 20]
+
+
+def test_fetch_by_ids_ignores_the_date_window(monkeypatch, frozen_now):
+    """A paper you read last year must still come back."""
+    monkeypatch.setattr(arxiv_client, "_get",
+                        lambda p: atom_feed([make_paper(1, days_ago=900)]))
+    assert len(arxiv_client.fetch_by_ids(["old"])) == 1
