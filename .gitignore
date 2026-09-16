@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Generated digests. See README: your ratings live in these files until
+# stage 3 moves them into SQLite -- back them up before then.
+digests/*.md
+!digests/.gitkeep
+
+README.md
