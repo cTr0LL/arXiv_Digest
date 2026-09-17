@@ -1,58 +1,70 @@
 # Research profile
 
 <!--
-Copy this file to profile.md and edit it. profile.md is gitignored, so what
-you write there stays on your machine.
+Copy this file to profile.md and replace everything below with your own work.
+profile.md is gitignored, so what you write there stays on your machine.
 
 This file is the prompt, twice over: the prefilter embeds each line of it to
 choose candidates, and the model reads all of it to score them. Write it the
 way you would brief a new labmate.
 
-Three things that matter more than they look:
+Four things that matter more than they look:
 
 1. Name methods, benchmarks and datasets explicitly. The prefilter matches
-   semantically, so listing both "replay" and "rehearsal" costs nothing and
-   widens recall.
-2. Fill in "What I do not need". Negative examples prevent most false
-   positives and are what stop the model inflating every score to a 4.
+   semantically, so listing both "domain adaptation" and "distribution shift"
+   costs nothing and widens recall.
+2. Fill in "What I do not need". Anything under a heading matching that phrase
+   is *subtracted* from a paper's score rather than added, which is what stops
+   the model inflating every result to a 4. Rename that heading and the meaning
+   flips.
 3. Every line is embedded on its own and a paper only has to match one of
-   them. So keep lines specific -- a vague line matches everything weakly,
-   which is worse than useless.
+   them, so keep lines specific. A vague line matches everything weakly, which
+   is worse than useless.
+4. If your work sits at the intersection of two fields, say so in a single
+   sentence rather than splitting it across two bullets. Separate lines make
+   the filter return the union -- every paper in either field -- rather than
+   the overlap you actually care about.
 
-HTML comments like this one are stripped before embedding, so instructions in
-here cost you nothing. Headings are stripped too.
+HTML comments like this one are stripped before embedding, and so are headings,
+so instructions in here cost you nothing.
 
-The content below is a worked example. Replace it with yours.
+The profile below belongs to an invented researcher. It is filled in properly
+so you can see the level of detail that works. Delete it.
 -->
 
 ## What I work on
 
-Continual learning for medical image classification, specifically replay-based
-methods under domain shift, where the label set stays fixed but the scanner,
-site or acquisition protocol changes between tasks.
+Crop-type mapping from Sentinel-2 satellite image time series, specifically
+models that stay accurate when transferred to a region or growing season they
+were not trained on. The hard part is that spectral signatures for the same
+crop shift with latitude, soil and weather, so a model fitted in one country
+degrades badly in the next.
 
 ## Methods I track
 
-- Replay and rehearsal: experience replay, generative replay, buffer selection, herding
-- Regularization-based continual learning: EWC, synaptic intelligence, MAS
-- Prompt- and adapter-based continual learning: L2P, DualPrompt, CODA-Prompt, LoRA
-- Forgetting metrics, stability-plasticity tradeoffs, task-order sensitivity
+- Temporal encoders for satellite image series: U-TAE, temporal attention, LSTM and transformer baselines
+- Self-supervised pretraining on unlabelled imagery: SatMAE, masked autoencoders, contrastive approaches
+- Geospatial foundation models and how well they transfer without fine-tuning
+- Label-efficient learning: few-shot adaptation, active learning, weak supervision from crop statistics
+- Unsupervised domain adaptation across regions and across years
 
 ## Benchmarks and data I care about
 
-Domain-incremental and class-incremental splits of medical imaging datasets such
-as CheXpert, MIMIC-CXR, ISIC and Camelyon17. Split-CIFAR and Split-ImageNet only
-when the method itself is the contribution rather than the application.
+PASTIS, BigEarthNet, EuroSAT and Sen1Floods11. Sentinel-1 radar fusion when it
+is used to see through cloud cover rather than as an extra channel for its own
+sake. Results reported across more than one country or season, since
+single-region numbers say nothing about transfer.
 
 ## What I do not need
 
-- Continual learning for language models with no vision component
-- Federated learning unless continual learning is the main axis of the work
-- Neural architecture search, quantization, inference efficiency
-- Surveys, position papers and benchmark-only contributions
+- Object detection in aerial or drone imagery, which is a different problem
+- Super-resolution and image enhancement work with no downstream task
+- Pure remote sensing applications with no machine learning contribution
+- Neural architecture search, quantization and inference efficiency
+- Surveys, position papers and dataset-only releases
 
 ## Context
 
-I am implementing a replay baseline right now, so papers reporting buffer size
-ablations or concrete implementation detail are worth more to me than
-high-level surveys.
+I am reproducing a temporal transformer baseline on PASTIS at the moment, so
+papers that report per-region breakdowns or release training code are worth
+more to me than ones reporting a single aggregate number.
